@@ -13,14 +13,25 @@ import {
   CheckCircle2, 
   AlertCircle,
   Database,
-  ShieldCheck
+  ShieldCheck,
+  Home as HomeIcon,
+  PlusCircle,
+  Bell,
+  Settings,
+  ChevronRight,
+  Menu,
+  X,
+  Link as LinkIcon,
+  Loader2,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 const GraphView = dynamic(() => import('@/components/GraphView'), { 
   ssr: false,
   loading: () => (
-    <div className="w-full h-[600px] rounded-xl border border-white/[0.08] bg-[#0C0F1A] flex items-center justify-center text-[#6B6775] text-sm gap-3" role="status" aria-label="Loading graph visualization">
-      <RefreshCw className="animate-spin text-[#D4A853]" size={18} />
+    <div className="w-full h-[560px] rounded-xl border border-[#E8E5F0] bg-white flex items-center justify-center text-[#9B97A8] text-sm gap-3" role="status" aria-label="Loading graph visualization">
+      <Loader2 className="animate-spin text-[#4F46E5]" size={20} />
       <span style={{ fontFamily: 'var(--font-body)' }}>Loading graph canvas…</span>
     </div>
   )
@@ -41,30 +52,58 @@ interface OverlapEvidence {
   type: string;
 }
 
+type Section = 'dashboard' | 'upload' | 'search' | 'graph';
+
 const PIPELINE_STEPS = ['UPLOADED', 'EXTRACTING', 'EMBEDDING', 'COMPLETED'] as const;
 
-const TYPE_BADGE_COLORS: Record<string, string> = {
-  RESEARCHER: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  PAPER: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  DATASET: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  METHOD: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-  TOPIC: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+const TYPE_BADGE_STYLES: Record<string, string> = {
+  RESEARCHER: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  PAPER: 'bg-amber-50 text-amber-700 border-amber-200',
+  DATASET: 'bg-green-50 text-green-700 border-green-200',
+  METHOD: 'bg-purple-50 text-purple-700 border-purple-200',
+  TOPIC: 'bg-blue-50 text-blue-700 border-blue-200',
+};
+
+const TYPE_DOT_COLORS: Record<string, string> = {
+  RESEARCHER: 'bg-cyan-500',
+  PAPER: 'bg-amber-500',
+  DATASET: 'bg-green-500',
+  METHOD: 'bg-purple-500',
+  TOPIC: 'bg-blue-500',
+};
+
+const NAV_ITEMS: { key: Section; label: string; icon: any }[] = [
+  { key: 'dashboard', label: 'Dashboard', icon: HomeIcon },
+  { key: 'upload', label: 'Upload', icon: PlusCircle },
+  { key: 'search', label: 'Search', icon: Search },
+  { key: 'graph', label: 'Knowledge Graph', icon: Share2 },
+];
+
+const SECTION_TITLES: Record<Section, string> = {
+  dashboard: 'Dashboard',
+  upload: 'Upload Document',
+  search: 'Semantic Search',
+  graph: 'Knowledge Graph',
 };
 
 export default function Home() {
-  // Ingestion state
+  // ═══ Navigation state ═══
+  const [activeSection, setActiveSection] = useState<Section>('upload');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // ═══ Ingestion state (UNCHANGED) ═══
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [docId, setDocId] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   
-  // Search state
+  // ═══ Search state (UNCHANGED) ═══
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Graph state
+  // ═══ Graph state (UNCHANGED) ═══
   const [graphData, setGraphData] = useState<{ nodes: any[]; edges: any[] }>({
     nodes: [
       { id: '1', name: 'A. Vaswani', type: 'RESEARCHER' },
@@ -89,13 +128,16 @@ export default function Home() {
   });
   const [selectedNode, setSelectedNode] = useState<{ id: string; name: string; type: string } | null>(null);
 
-  // Overlap state
+  // ═══ Overlap state (UNCHANGED) ═══
   const [node1Id, setNode1Id] = useState<string>("2");
   const [node2Id, setNode2Id] = useState<string>("7");
   const [overlapData, setOverlapData] = useState<{ overlap_score: number; evidence: OverlapEvidence[] } | null>(null);
   const [isAnalyzingOverlap, setIsAnalyzingOverlap] = useState(false);
 
-  // Document Ingestion
+  // ═══════════════════════════════════════
+  // ALL HANDLERS BELOW ARE 100% UNCHANGED
+  // ═══════════════════════════════════════
+
   const handleUpload = async () => {
     if (!file) return;
     setIsUploading(true);
@@ -159,7 +201,6 @@ export default function Home() {
     }
   };
 
-  // Semantic Search
   const handleSearch = async (queryText?: string) => {
     const q = queryText || searchQuery;
     if (!q) return;
@@ -187,7 +228,6 @@ export default function Home() {
     }
   };
 
-  // Graph Traversal
   const loadGraph = async (nodeId: string, nodeName?: string, nodeType?: string) => {
     setSelectedNode({ id: nodeId, name: nodeName || 'Selected Entity', type: nodeType || 'ENTITY' });
     try {
@@ -200,7 +240,6 @@ export default function Home() {
     }
   };
 
-  // Overlap Analysis
   const handleAnalyzeOverlap = async () => {
     if (!node1Id || !node2Id) return;
     setIsAnalyzingOverlap(true);
@@ -220,13 +259,9 @@ export default function Home() {
     }
   };
 
+  // ═══ UI Helpers ═══
   const getPipelineStepState = (step: string) => {
-    if (uploadStatus === 'FAILED') {
-      const idx = PIPELINE_STEPS.indexOf(step as any);
-      const currentIdx = PIPELINE_STEPS.indexOf(uploadStatus as any);
-      if (idx <= currentIdx || currentIdx === -1) return 'failed';
-      return '';
-    }
+    if (uploadStatus === 'FAILED') return 'failed';
     const stepIdx = PIPELINE_STEPS.indexOf(step as any);
     const currentIdx = PIPELINE_STEPS.indexOf(uploadStatus as any);
     if (currentIdx === -1) {
@@ -238,384 +273,552 @@ export default function Home() {
     return '';
   };
 
-  return (
-    <div className="min-h-screen bg-[#0C0F1A] text-[#E8E6E1] antialiased" style={{ fontFamily: 'var(--font-body)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8">
-        
-        {/* ═══════ Header ═══════ */}
-        <header className="card-surface px-6 py-5 animate-fade-in-up" role="banner">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl tracking-tight text-[#E8E6E1]" style={{ fontFamily: 'var(--font-display)' }}>
-                  Graphis
-                </h1>
-                <span className="text-[11px] font-medium px-2.5 py-1 bg-[#D4A853]/10 text-[#D4A853] rounded-md border border-[#D4A853]/20" style={{ fontFamily: 'var(--font-mono)' }}>
-                  Research Knowledge Graph
-                </span>
-              </div>
-              <p className="text-sm text-[#9B97A0] mt-1.5 max-w-lg">
-                Cross-disciplinary entity extraction, vector search, and overlap detection
-              </p>
-            </div>
+  const navigateTo = (section: Section) => {
+    setActiveSection(section);
+    setSidebarOpen(false);
+  };
 
-            <nav aria-label="System status" className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-medium" role="status">
-                <CheckCircle2 size={14} aria-hidden="true" />
-                <span>Backend Online</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] text-[#9B97A0] border border-white/[0.08] rounded-lg text-xs font-medium">
-                <Database size={14} aria-hidden="true" />
-                <span>pgvector</span>
-              </div>
+  const handleSearchResultClick = (res: SearchResult) => {
+    loadGraph(res.id, res.name, res.type);
+    setActiveSection('graph');
+  };
+
+  // Get connected nodes for the selected node in graph
+  const getConnectedNodes = () => {
+    if (!selectedNode) return [];
+    return graphData.edges
+      .filter(e => e.source === selectedNode.id || e.target === selectedNode.id)
+      .map(e => {
+        const otherId = e.source === selectedNode.id ? e.target : e.source;
+        const otherNode = graphData.nodes.find(n => n.id === otherId);
+        return { ...otherNode, relationship: e.label };
+      })
+      .filter(Boolean);
+  };
+
+  // ═══════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════
+  return (
+    <div className="flex min-h-screen bg-[#F8F7FF]" style={{ fontFamily: 'var(--font-body)' }}>
+      
+      {/* ═══ Mobile Sidebar Overlay ═══ */}
+      {sidebarOpen && (
+        <div 
+          className="sidebar-overlay md:hidden" 
+          onClick={() => setSidebarOpen(false)} 
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ═══ Sidebar ═══ */}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} role="navigation" aria-label="Main navigation">
+        {/* Logo */}
+        <div className="px-5 pt-6 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#EDE9FE] flex items-center justify-center">
+              <Share2 size={16} className="text-[#4F46E5]" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-[#1E1B4B] leading-tight">Graphis</h1>
+              <p className="text-[11px] text-[#4F46E5] font-medium" style={{ fontFamily: 'var(--font-mono)' }}>Intelligence Platform</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 py-2" aria-label="Sections">
+          {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => navigateTo(key)}
+              className={`sidebar-nav-item w-full text-left ${activeSection === key ? 'active' : ''}`}
+              aria-current={activeSection === key ? 'page' : undefined}
+            >
+              <Icon size={18} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="px-5 py-4 border-t border-[#E8E5F0]">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 text-[#059669]">
+              <CheckCircle2 size={13} />
+              <span className="font-medium">Online</span>
+            </div>
+            <span className="text-[#D4D2E0]">·</span>
+            <div className="flex items-center gap-1.5 text-[#9B97A8]">
+              <Database size={13} />
+              <span style={{ fontFamily: 'var(--font-mono)' }}>pgvector</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ═══ Main Content Area ═══ */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* ─── Top Bar ─── */}
+        <header className="top-bar" role="banner">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden p-2 -ml-2 text-[#64607D] hover:text-[#1E1B4B] hover:bg-[#F5F3FF] rounded-lg transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
+            {/* Breadcrumb */}
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">
+              <span className="text-[#9B97A8]">Graphis</span>
+              <ChevronRight size={14} className="text-[#D4D2E0]" aria-hidden="true" />
+              <span className="text-[#1E1B4B] font-semibold">{SECTION_TITLES[activeSection]}</span>
             </nav>
           </div>
-          {/* Accent line */}
-          <div className="mt-4 h-px bg-gradient-to-r from-[#D4A853]/50 via-[#D4A853]/20 to-transparent" aria-hidden="true" />
+
+          <div className="flex items-center gap-2">
+            <button aria-label="Notifications" className="p-2 text-[#9B97A8] hover:text-[#64607D] hover:bg-[#F5F3FF] rounded-lg transition-colors">
+              <Bell size={18} />
+            </button>
+            <button aria-label="Settings" className="p-2 text-[#9B97A8] hover:text-[#64607D] hover:bg-[#F5F3FF] rounded-lg transition-colors">
+              <Settings size={18} />
+            </button>
+            <button 
+              onClick={() => navigateTo('upload')}
+              className="ml-2 px-4 py-2 bg-[#1E1B4B] hover:bg-[#2D2760] text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 min-h-[40px]"
+            >
+              <PlusCircle size={15} aria-hidden="true" />
+              <span className="hidden sm:inline">New Analysis</span>
+            </button>
+          </div>
         </header>
 
-        {/* ═══════ Section 1: Ingestion & Semantic Search ═══════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* ─── Ingest Card ─── */}
-          <section className="card-surface p-6 flex flex-col justify-between animate-fade-in-up" style={{ animationDelay: '80ms' }} aria-labelledby="ingest-heading">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#D4A853]/10 flex items-center justify-center">
-                    <Upload size={16} className="text-[#D4A853]" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <h2 id="ingest-heading" className="text-base font-semibold text-[#E8E6E1]">
-                      Ingest Document
-                    </h2>
-                    <p className="text-xs text-[#6B6775]" style={{ fontFamily: 'var(--font-mono)' }}>
-                      PDF · MD · ZIP
-                    </p>
-                  </div>
-                </div>
-                <ShieldCheck size={16} className="text-emerald-500/60" aria-label="Security validated uploads" />
+        {/* ─── Page Content ─── */}
+        <main className="flex-1 overflow-y-auto">
+
+          {/* ════════════════════════════ */}
+          {/* DASHBOARD SECTION            */}
+          {/* ════════════════════════════ */}
+          {activeSection === 'dashboard' && (
+            <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6 animate-fade-in-up">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl text-[#1E1B4B] mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+                  Research Intelligence
+                </h2>
+                <p className="text-[#64607D] max-w-lg mx-auto">
+                  Upload documents, search across your knowledge base, and explore entity relationships.
+                </p>
               </div>
 
-              <p className="text-sm text-[#9B97A0] leading-relaxed">
-                Upload raw research files. The pipeline performs deterministic secret filtering, entity extraction, and vector embedding.
-              </p>
-
-              {/* File Drop Zone */}
-              <div className="drop-zone p-5 text-center cursor-pointer">
-                <input
-                  type="file"
-                  id="document-file-input"
-                  accept=".pdf,.md,.zip,.txt"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                  aria-describedby="file-hint"
-                />
-                <label htmlFor="document-file-input" className="cursor-pointer space-y-2 block">
-                  <FileText size={24} className="mx-auto text-[#D4A853]/60" aria-hidden="true" />
-                  <div className="text-sm font-medium text-[#E8E6E1]">
-                    {file ? file.name : "Select PDF, Markdown, or Git Archive"}
-                  </div>
-                  <div id="file-hint" className="text-xs text-[#6B6775]">
-                    {file ? `${Math.round(file.size / 1024)} KB` : "Max file size: 25 MB"}
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-3 mt-5">
-              <button
-                onClick={handleUpload}
-                disabled={!file || isUploading}
-                aria-busy={isUploading}
-                className="w-full py-3 bg-[#D4A853] hover:bg-[#E0B964] disabled:bg-white/[0.06] disabled:text-[#6B6775] text-[#0C0F1A] rounded-lg text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 min-h-[44px]"
-              >
-                {isUploading ? <RefreshCw className="animate-spin" size={16} aria-hidden="true" /> : null}
-                {isUploading ? 'Processing…' : 'Run Ingestion Pipeline'}
-              </button>
-
-              {/* Pipeline Status */}
-              {uploadStatus && (
-                <div className="p-4 bg-[#0C0F1A] border border-white/[0.08] rounded-lg space-y-3" role="status" aria-live="polite" aria-label="Document processing status">
-                  {/* Pipeline Steps */}
-                  <div className="flex items-center justify-between gap-1">
-                    {PIPELINE_STEPS.map((step, i) => (
-                      <div key={step} className="flex items-center gap-1 flex-1">
-                        <div className={`pipeline-step ${getPipelineStepState(step)}`}>
-                          <div className="pipeline-dot" />
-                          <span className="text-[10px]">{step}</span>
-                        </div>
-                        {i < PIPELINE_STEPS.length - 1 && (
-                          <div className={`flex-1 h-px mx-1 ${getPipelineStepState(step) === 'completed' ? 'bg-emerald-500/40' : 'bg-white/[0.06]'}`} aria-hidden="true" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#9B97A0]">
-                      Status:{' '}
-                      <span className={`font-semibold uppercase ml-1 ${
-                        uploadStatus === 'COMPLETED' ? 'text-emerald-400' : 
-                        uploadStatus === 'FAILED' ? 'text-red-400' : 
-                        'text-[#D4A853]'
-                      }`} style={{ fontFamily: 'var(--font-mono)' }}>
-                        {uploadStatus}
-                      </span>
-                    </span>
-                    <button 
-                      onClick={checkStatus} 
-                      aria-label="Refresh processing status" 
-                      className="p-1.5 text-[#6B6775] hover:text-[#D4A853] rounded-md hover:bg-white/[0.04] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    >
-                      <RefreshCw size={14} aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  {errorMessage && (
-                    <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-3 rounded-lg flex items-start gap-2" role="alert">
-                      <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-                      <span>{errorMessage}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* ─── Semantic Search Card ─── */}
-          <section className="card-surface p-6 flex flex-col justify-between animate-fade-in-up" style={{ animationDelay: '160ms' }} aria-labelledby="search-heading">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <Search size={16} className="text-blue-400" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <h2 id="search-heading" className="text-base font-semibold text-[#E8E6E1]">
-                      Vector Semantic Search
-                    </h2>
-                    <p className="text-xs text-[#6B6775]" style={{ fontFamily: 'var(--font-mono)' }}>
-                      Cosine Top-K
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-sm text-[#9B97A0] leading-relaxed">
-                Query papers, methods, datasets, and researchers using dense vector representations.
-              </p>
-
-              {/* Search Input */}
-              <div className="flex gap-2">
-                <label htmlFor="search-input" className="sr-only">Search research entities</label>
-                <input
-                  id="search-input"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="e.g. self-attention sequence modeling"
-                  className="flex-grow px-4 py-2.5 bg-[#111525] border border-white/[0.1] rounded-lg text-sm text-[#E8E6E1] placeholder-[#6B6775] outline-none focus:border-[#D4A853]/50 focus:ring-1 focus:ring-[#D4A853]/30 transition-all min-h-[44px]"
-                />
-                <button
-                  onClick={() => handleSearch()}
-                  disabled={isSearching}
-                  aria-label="Submit search"
-                  className="px-5 py-2.5 bg-[#D4A853] hover:bg-[#E0B964] disabled:bg-white/[0.06] disabled:text-[#6B6775] text-[#0C0F1A] rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 min-h-[44px]"
-                >
-                  {isSearching ? <RefreshCw className="animate-spin" size={15} aria-hidden="true" /> : <Search size={15} aria-hidden="true" />}
-                  <span className="hidden sm:inline">{isSearching ? 'Searching…' : 'Search'}</span>
-                </button>
-              </div>
-
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Search suggestions">
-                <span className="text-xs text-[#6B6775]">Try:</span>
-                {['Transformer', 'BERT', 'Attention', 'Sequence Modeling'].map((q) => (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {[
+                  { key: 'upload' as Section, icon: Upload, title: 'Ingest Document', desc: 'Upload PDFs, Markdown, or Git archives for entity extraction', color: 'bg-indigo-50 text-indigo-600' },
+                  { key: 'search' as Section, icon: Search, title: 'Semantic Search', desc: 'Query your knowledge graph using natural language', color: 'bg-cyan-50 text-cyan-600' },
+                  { key: 'graph' as Section, icon: Share2, title: 'Knowledge Graph', desc: 'Explore entity relationships and discover overlap', color: 'bg-purple-50 text-purple-600' },
+                ].map(item => (
                   <button
-                    key={q}
-                    onClick={() => { setSearchQuery(q); handleSearch(q); }}
-                    className="px-3 py-1.5 bg-white/[0.04] hover:bg-[#D4A853]/10 border border-white/[0.08] hover:border-[#D4A853]/30 rounded-lg text-xs text-[#9B97A0] hover:text-[#D4A853] transition-all duration-200 min-h-[36px]"
+                    key={item.key}
+                    onClick={() => navigateTo(item.key)}
+                    className="card text-left hover:border-[#4F46E5]/30 hover:shadow-md transition-all duration-200 group"
                   >
-                    {q}
+                    <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center mb-3`}>
+                      <item.icon size={20} />
+                    </div>
+                    <h3 className="font-semibold text-[#1E1B4B] mb-1 group-hover:text-[#4F46E5] transition-colors">{item.title}</h3>
+                    <p className="text-sm text-[#64607D] leading-relaxed">{item.desc}</p>
+                    <div className="flex items-center gap-1 mt-3 text-sm text-[#4F46E5] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Open <ArrowRight size={14} />
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Results List */}
-            <div className="max-h-48 overflow-y-auto mt-4 border-t border-white/[0.06] pt-3 space-y-1" role="list" aria-label="Search results">
-              {searchResults.length > 0 ? (
-                searchResults.map((res, i) => (
-                  <div
-                    key={i}
-                    role="listitem"
-                    tabIndex={0}
-                    onClick={() => loadGraph(res.id, res.name, res.type)}
-                    onKeyDown={(e) => e.key === 'Enter' && loadGraph(res.id, res.name, res.type)}
-                    className="group py-2.5 px-3 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-between animate-fade-in"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                  >
-                    <div className="min-w-0 flex-1 mr-3">
-                      <div className="text-sm font-medium text-[#E8E6E1] truncate group-hover:text-[#D4A853] transition-colors">
-                        {res.name}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${TYPE_BADGE_COLORS[res.type.toUpperCase()] || 'bg-white/[0.04] text-[#9B97A0] border-white/[0.08]'}`} style={{ fontFamily: 'var(--font-mono)' }}>
-                          {res.type}
-                        </span>
-                        {res.distance !== undefined && (
-                          <span className="text-[11px] text-[#6B6775]" style={{ fontFamily: 'var(--font-mono)' }}>
-                            dist: {res.distance.toFixed(3)}
-                          </span>
-                        )}
-                      </div>
+          {/* ════════════════════════════ */}
+          {/* UPLOAD SECTION               */}
+          {/* ════════════════════════════ */}
+          {activeSection === 'upload' && (
+            <div className="p-6 lg:p-8 max-w-2xl mx-auto animate-fade-in-up" aria-labelledby="upload-heading">
+              <div className="text-center mb-8">
+                <h2 id="upload-heading" className="text-3xl text-[#1E1B4B] mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+                  Ingest Intelligence
+                </h2>
+                <p className="text-[#64607D]">
+                  Upload unstructured documents or link repositories to extract relational entities for the knowledge graph.
+                </p>
+              </div>
+
+              {/* Upload Card */}
+              <div className="card space-y-6">
+                {/* Drop Zone */}
+                <div className="drop-zone p-8 text-center">
+                  <input
+                    type="file"
+                    id="document-file-input"
+                    accept=".pdf,.md,.zip,.txt"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    aria-describedby="file-hint"
+                  />
+                  <label htmlFor="document-file-input" className="cursor-pointer block space-y-3">
+                    <div className="w-12 h-12 mx-auto rounded-xl bg-[#EDE9FE] flex items-center justify-center">
+                      <FileText size={22} className="text-[#4F46E5]" aria-hidden="true" />
                     </div>
-                    <span className="text-xs text-[#6B6775] group-hover:text-[#D4A853] transition-colors shrink-0">
-                      Explore →
-                    </span>
+                    <div>
+                      <p className="font-semibold text-[#1E1B4B]">
+                        {file ? file.name : 'Drag & drop files here'}
+                      </p>
+                      <p id="file-hint" className="text-sm text-[#9B97A8] mt-0.5">
+                        {file ? `${Math.round(file.size / 1024)} KB` : 'or click to browse from your computer'}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="file-badge">.PDF</span>
+                      <span className="file-badge">.MD</span>
+                      <span className="file-badge">.ZIP</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Pipeline Status */}
+                {uploadStatus && (
+                  <div className="space-y-4 animate-fade-in" role="status" aria-live="polite" aria-label="Document processing status">
+                    {/* Step Indicators */}
+                    <div className="pipeline-track">
+                      {PIPELINE_STEPS.map((step, i) => (
+                        <div key={step} className="flex items-center flex-1 last:flex-none">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className={`pipeline-step-dot ${getPipelineStepState(step)}`} />
+                            <span className={`text-[10px] font-medium ${
+                              getPipelineStepState(step) === 'active' ? 'text-[#4F46E5]' : 
+                              getPipelineStepState(step) === 'completed' ? 'text-[#059669]' :
+                              getPipelineStepState(step) === 'failed' ? 'text-[#DC2626]' :
+                              'text-[#9B97A8]'
+                            }`} style={{ fontFamily: 'var(--font-mono)' }}>
+                              {step}
+                            </span>
+                          </div>
+                          {i < PIPELINE_STEPS.length - 1 && (
+                            <div className={`pipeline-connector mx-2 ${getPipelineStepState(step) === 'completed' ? 'completed' : ''}`} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-[#F8F7FF] rounded-lg">
+                      <span className="text-sm text-[#64607D]">
+                        Status:{' '}
+                        <span className={`font-semibold ${
+                          uploadStatus === 'COMPLETED' ? 'text-[#059669]' : 
+                          uploadStatus === 'FAILED' ? 'text-[#DC2626]' : 
+                          'text-[#4F46E5]'
+                        }`} style={{ fontFamily: 'var(--font-mono)' }}>
+                          {uploadStatus}
+                        </span>
+                      </span>
+                      <button 
+                        onClick={checkStatus} 
+                        aria-label="Refresh processing status" 
+                        className="p-2 text-[#9B97A8] hover:text-[#4F46E5] rounded-lg hover:bg-white transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
+                      >
+                        <RefreshCw size={15} />
+                      </button>
+                    </div>
+
+                    {errorMessage && (
+                      <div className="text-sm text-[#DC2626] bg-red-50 border border-red-200 p-3 rounded-lg flex items-start gap-2" role="alert">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span>{errorMessage}</span>
+                      </div>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="text-sm text-[#6B6775] py-6 text-center">
-                  Submit a query to view semantic candidates.
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
+                )}
+              </div>
 
-        {/* ═══════ Section 2: Knowledge Graph Explorer ═══════ */}
-        <section className="card-surface p-6 animate-fade-in-up" style={{ animationDelay: '240ms' }} aria-labelledby="graph-heading">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <Share2 size={16} className="text-purple-400" aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 id="graph-heading" className="text-base font-semibold text-[#E8E6E1]">
-                    Interactive Knowledge Graph
-                  </h2>
-                  <p className="text-xs text-[#6B6775] mt-0.5">
-                    1-hop and 2-hop relational neighborhoods across connected academic entities
-                  </p>
-                </div>
+              {/* Process Button */}
+              <div className="text-center mt-6">
+                <button
+                  onClick={handleUpload}
+                  disabled={!file || isUploading}
+                  aria-busy={isUploading}
+                  className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 bg-[#1E1B4B] hover:bg-[#2D2760] disabled:bg-[#E8E5F0] disabled:text-[#9B97A8] text-white rounded-xl text-sm font-semibold transition-all duration-200 min-h-[48px] shadow-sm"
+                >
+                  {isUploading ? (
+                    <Loader2 className="animate-spin" size={17} />
+                  ) : (
+                    <Sparkles size={17} />
+                  )}
+                  {isUploading ? 'Processing…' : 'Process Document'}
+                </button>
+                <p className="text-xs text-[#9B97A8] mt-2.5 flex items-center justify-center gap-1.5">
+                  <ShieldCheck size={13} />
+                  Submission will trigger the ingestion pipeline.
+                </p>
               </div>
             </div>
+          )}
 
-            {selectedNode && (
-              <div className="text-xs px-3 py-2 bg-[#D4A853]/10 border border-[#D4A853]/20 rounded-lg text-[#D4A853]" role="status" aria-live="polite">
-                Focused: <span className="font-semibold text-[#E8E6E1]">{selectedNode.name}</span>
-                <span className="text-[#9B97A0] ml-1">({selectedNode.type})</span>
+          {/* ════════════════════════════ */}
+          {/* SEARCH SECTION               */}
+          {/* ════════════════════════════ */}
+          {activeSection === 'search' && (
+            <div className="p-6 lg:p-8 max-w-3xl mx-auto animate-fade-in-up" aria-labelledby="search-heading">
+              <div className="text-center mb-8">
+                <h2 id="search-heading" className="text-3xl text-[#1E1B4B] mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+                  Semantic Search
+                </h2>
+                <p className="text-[#64607D]">
+                  Query papers, methods, datasets, and researchers using dense vector representations.
+                </p>
               </div>
-            )}
-          </div>
 
-          <GraphView 
-            nodes={graphData.nodes} 
-            edges={graphData.edges} 
-            onSelectNode={(n) => loadGraph(n.id, n.name, n.type)}
-            selectedNodeId={selectedNode?.id}
-          />
-        </section>
-
-        {/* ═══════ Section 3: Overlap Analysis ═══════ */}
-        <section className="card-surface p-6 animate-fade-in-up" style={{ animationDelay: '320ms' }} aria-labelledby="overlap-heading">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <GitMerge size={16} className="text-amber-400" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 id="overlap-heading" className="text-base font-semibold text-[#E8E6E1]">
-                Potential Research Overlap
-              </h2>
-              <p className="text-xs text-[#6B6775] mt-0.5">
-                Evaluates shared methodologies, datasets, and topic intersections with cited provenance
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-            <div>
-              <label htmlFor="study-a-input" className="text-xs font-semibold text-[#9B97A0] block mb-1.5">
-                Study A (Node ID)
-              </label>
-              <input
-                id="study-a-input"
-                type="text"
-                value={node1Id}
-                onChange={(e) => setNode1Id(e.target.value)}
-                placeholder="2"
-                className="w-full px-4 py-2.5 bg-[#111525] border border-white/[0.1] rounded-lg text-sm text-[#E8E6E1] placeholder-[#6B6775] outline-none focus:border-[#D4A853]/50 focus:ring-1 focus:ring-[#D4A853]/30 transition-all min-h-[44px]"
-              />
-            </div>
-            <div>
-              <label htmlFor="study-b-input" className="text-xs font-semibold text-[#9B97A0] block mb-1.5">
-                Study B (Node ID)
-              </label>
-              <input
-                id="study-b-input"
-                type="text"
-                value={node2Id}
-                onChange={(e) => setNode2Id(e.target.value)}
-                placeholder="7"
-                className="w-full px-4 py-2.5 bg-[#111525] border border-white/[0.1] rounded-lg text-sm text-[#E8E6E1] placeholder-[#6B6775] outline-none focus:border-[#D4A853]/50 focus:ring-1 focus:ring-[#D4A853]/30 transition-all min-h-[44px]"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleAnalyzeOverlap}
-            disabled={isAnalyzingOverlap || !node1Id || !node2Id}
-            aria-busy={isAnalyzingOverlap}
-            className="mt-4 px-6 py-3 bg-[#D4A853] hover:bg-[#E0B964] disabled:bg-white/[0.06] disabled:text-[#6B6775] text-[#0C0F1A] rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 min-h-[44px]"
-          >
-            {isAnalyzingOverlap ? <RefreshCw className="animate-spin" size={15} aria-hidden="true" /> : <GitMerge size={15} aria-hidden="true" />}
-            {isAnalyzingOverlap ? 'Analyzing…' : 'Calculate Overlap'}
-          </button>
-
-          {overlapData && (
-            <div className="mt-5 p-5 bg-[#0C0F1A] border border-white/[0.08] rounded-xl space-y-4 animate-fade-in" role="region" aria-label="Overlap analysis results">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm text-[#9B97A0]">Potential Overlap Score</span>
-                  <div className="text-3xl font-bold text-[#D4A853] mt-0.5" style={{ fontFamily: 'var(--font-display)' }}>
-                    {overlapData.overlap_score}%
+              {/* Search Input */}
+              <div className="card space-y-5">
+                <div className="flex gap-2.5">
+                  <label htmlFor="search-input" className="sr-only">Search research entities</label>
+                  <div className="relative flex-grow">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9B97A8]" aria-hidden="true" />
+                    <input
+                      id="search-input"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      placeholder="e.g. self-attention in sequence modeling"
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-[#E8E5F0] rounded-xl text-sm text-[#1E1B4B] placeholder-[#9B97A8] outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition-all min-h-[48px]"
+                    />
                   </div>
+                  <button
+                    onClick={() => handleSearch()}
+                    disabled={isSearching}
+                    aria-label="Submit search"
+                    className="px-6 py-3 bg-[#1E1B4B] hover:bg-[#2D2760] disabled:bg-[#E8E5F0] disabled:text-[#9B97A8] text-white rounded-xl text-sm font-semibold transition-all flex items-center gap-2 min-h-[48px]"
+                  >
+                    {isSearching ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
+                    <span className="hidden sm:inline">Search</span>
+                  </button>
                 </div>
-                <span className="text-[11px] px-2.5 py-1 bg-[#D4A853]/10 text-[#D4A853] border border-[#D4A853]/20 rounded-md" style={{ fontFamily: 'var(--font-mono)' }}>
-                  Evidence-Backed
-                </span>
-              </div>
 
-              {/* Overlap bar */}
-              <div className="overlap-bar" role="progressbar" aria-valuenow={overlapData.overlap_score} aria-valuemin={0} aria-valuemax={100} aria-label={`Overlap score: ${overlapData.overlap_score}%`}>
-                <div className="overlap-bar-fill" style={{ width: `${overlapData.overlap_score}%` }} />
-              </div>
-
-              <div>
-                <span className="text-xs text-[#6B6775] font-medium">Intersecting Evidence</span>
-                <div className="flex flex-wrap gap-2 mt-2 stagger-children">
-                  {overlapData.evidence.map((ev, idx) => (
-                    <span
-                      key={idx}
-                      className={`animate-fade-in-up px-3 py-1.5 rounded-lg text-xs border ${TYPE_BADGE_COLORS[ev.type.toUpperCase()] || 'bg-white/[0.04] text-[#9B97A0] border-white/[0.08]'}`}
+                {/* Suggestion Chips */}
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Search suggestions">
+                  <span className="section-label mr-1">Suggestions</span>
+                  {['Transformer', 'BERT', 'Attention', 'Sequence Modeling'].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => { setSearchQuery(q); handleSearch(q); }}
+                      className="px-3 py-1.5 bg-[#F8F7FF] hover:bg-[#EDE9FE] border border-[#E8E5F0] hover:border-[#4F46E5]/30 rounded-lg text-xs text-[#64607D] hover:text-[#4F46E5] font-medium transition-all min-h-[36px]"
                     >
-                      <span className="font-semibold mr-1" style={{ fontFamily: 'var(--font-mono)' }}>[{ev.type}]</span>
-                      {ev.name}
-                    </span>
+                      {q}
+                    </button>
                   ))}
+                </div>
+
+                {/* Divider */}
+                <div className="divider-text">Results</div>
+
+                {/* Results List */}
+                <div className="max-h-80 overflow-y-auto space-y-1" role="list" aria-label="Search results">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((res, i) => (
+                      <div
+                        key={i}
+                        role="listitem"
+                        tabIndex={0}
+                        onClick={() => handleSearchResultClick(res)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchResultClick(res)}
+                        className="group p-3 hover:bg-[#F8F7FF] rounded-xl cursor-pointer transition-all flex items-center justify-between animate-fade-in"
+                        style={{ animationDelay: `${i * 50}ms` }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${TYPE_DOT_COLORS[res.type.toUpperCase()] || 'bg-gray-400'}`} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[#1E1B4B] truncate group-hover:text-[#4F46E5] transition-colors">
+                              {res.name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${TYPE_BADGE_STYLES[res.type.toUpperCase()] || 'bg-gray-50 text-gray-600 border-gray-200'}`} style={{ fontFamily: 'var(--font-mono)' }}>
+                                {res.type}
+                              </span>
+                              {res.distance !== undefined && (
+                                <span className="text-[11px] text-[#9B97A8]" style={{ fontFamily: 'var(--font-mono)' }}>
+                                  distance: {res.distance.toFixed(3)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <ArrowRight size={14} className="text-[#D4D2E0] group-hover:text-[#4F46E5] transition-colors shrink-0" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-[#9B97A8] py-8 text-center">
+                      Submit a query to view semantic candidates.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
-        </section>
 
-        {/* ═══════ Footer ═══════ */}
-        <footer className="text-center text-xs text-[#6B6775] py-5 border-t border-white/[0.04]" role="contentinfo">
-          <p>Graphis MVP Evaluation Build · Single-Tenant Architecture · Supabase & pgvector</p>
+          {/* ════════════════════════════ */}
+          {/* KNOWLEDGE GRAPH SECTION      */}
+          {/* ════════════════════════════ */}
+          {activeSection === 'graph' && (
+            <div className="p-4 lg:p-6 animate-fade-in-up h-[calc(100vh-56px)]">
+              <div className="flex gap-4 h-full">
+                
+                {/* Graph Canvas — Left */}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <GraphView 
+                    nodes={graphData.nodes} 
+                    edges={graphData.edges} 
+                    onSelectNode={(n) => loadGraph(n.id, n.name, n.type)}
+                    selectedNodeId={selectedNode?.id}
+                  />
+                </div>
+
+                {/* Details Panel — Right */}
+                <aside className="w-[340px] shrink-0 hidden lg:flex flex-col gap-4 overflow-y-auto animate-slide-in-right" aria-label="Details panel">
+                  
+                  {/* Selected Node Details */}
+                  {selectedNode ? (
+                    <div className="card space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-[#1E1B4B]" style={{ fontFamily: 'var(--font-display)' }}>
+                          Relationship Details
+                        </h3>
+                        <button 
+                          onClick={() => setSelectedNode(null)}
+                          aria-label="Close details panel"
+                          className="p-1.5 text-[#9B97A8] hover:text-[#1E1B4B] hover:bg-[#F5F3FF] rounded-lg transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {/* Connected Entities */}
+                      <div>
+                        <p className="section-label mb-2">Connected Entities</p>
+                        <div className="space-y-2">
+                          {/* Selected Node */}
+                          <div className="p-3 bg-[#F8F7FF] rounded-lg border border-[#E8E5F0]">
+                            <p className="section-label text-[10px]">{selectedNode.type}</p>
+                            <p className="font-semibold text-[#1E1B4B] text-sm">{selectedNode.name}</p>
+                          </div>
+                          {/* Connected Nodes */}
+                          {getConnectedNodes().slice(0, 4).map((node: any, i: number) => (
+                            <div key={i}>
+                              <p className="text-center text-[10px] text-[#9B97A8] my-1" style={{ fontFamily: 'var(--font-mono)' }}>
+                                ↕ {node.relationship}
+                              </p>
+                              <button
+                                onClick={() => loadGraph(node.id, node.name, node.type)}
+                                className="w-full p-3 bg-[#F8F7FF] hover:bg-[#EDE9FE] rounded-lg border border-[#E8E5F0] text-left transition-colors"
+                              >
+                                <p className="section-label text-[10px]">{node.type}</p>
+                                <p className="font-medium text-[#1E1B4B] text-sm truncate">{node.name}</p>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="card text-center py-8">
+                      <Share2 size={24} className="mx-auto text-[#D4D2E0] mb-2" />
+                      <p className="text-sm text-[#9B97A8]">Click a node to view relationships</p>
+                    </div>
+                  )}
+
+                  {/* Overlap Analysis */}
+                  <div className="card space-y-4">
+                    <h3 className="font-semibold text-[#1E1B4B]" style={{ fontFamily: 'var(--font-display)' }}>
+                      Overlap Analysis
+                    </h3>
+                    <p className="section-label">Compare Two Studies</p>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="study-a-input" className="text-xs font-medium text-[#64607D] block mb-1">
+                          Study A (Node ID)
+                        </label>
+                        <input
+                          id="study-a-input"
+                          type="text"
+                          value={node1Id}
+                          onChange={(e) => setNode1Id(e.target.value)}
+                          placeholder="2"
+                          className="w-full px-3 py-2.5 bg-white border border-[#E8E5F0] rounded-lg text-sm text-[#1E1B4B] placeholder-[#D4D2E0] outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition-all min-h-[42px]"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="study-b-input" className="text-xs font-medium text-[#64607D] block mb-1">
+                          Study B (Node ID)
+                        </label>
+                        <input
+                          id="study-b-input"
+                          type="text"
+                          value={node2Id}
+                          onChange={(e) => setNode2Id(e.target.value)}
+                          placeholder="7"
+                          className="w-full px-3 py-2.5 bg-white border border-[#E8E5F0] rounded-lg text-sm text-[#1E1B4B] placeholder-[#D4D2E0] outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 transition-all min-h-[42px]"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleAnalyzeOverlap}
+                      disabled={isAnalyzingOverlap || !node1Id || !node2Id}
+                      aria-busy={isAnalyzingOverlap}
+                      className="w-full py-2.5 bg-[#1E1B4B] hover:bg-[#2D2760] disabled:bg-[#E8E5F0] disabled:text-[#9B97A8] text-white rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 min-h-[42px]"
+                    >
+                      {isAnalyzingOverlap ? <Loader2 className="animate-spin" size={15} /> : <GitMerge size={15} />}
+                      {isAnalyzingOverlap ? 'Analyzing…' : 'Calculate Overlap'}
+                    </button>
+
+                    {overlapData && (
+                      <div className="space-y-3 pt-2 border-t border-[#E8E5F0] animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-[#64607D]">Overlap Score</span>
+                          <span className="text-2xl font-bold text-[#4F46E5]" style={{ fontFamily: 'var(--font-display)' }}>
+                            {overlapData.overlap_score}%
+                          </span>
+                        </div>
+
+                        <div className="overlap-bar">
+                          <div className="overlap-bar-fill" style={{ width: `${overlapData.overlap_score}%` }} role="progressbar" aria-valuenow={overlapData.overlap_score} aria-valuemin={0} aria-valuemax={100} aria-label={`Overlap: ${overlapData.overlap_score}%`} />
+                        </div>
+
+                        <div>
+                          <p className="section-label mb-2">Intersecting Evidence</p>
+                          <div className="space-y-1.5">
+                            {overlapData.evidence.map((ev, idx) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 bg-[#F8F7FF] rounded-lg text-xs">
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${TYPE_DOT_COLORS[ev.type.toUpperCase()] || 'bg-gray-400'}`} />
+                                <span className="text-[#9B97A8] font-medium" style={{ fontFamily: 'var(--font-mono)' }}>{ev.type}</span>
+                                <span className="text-[#1E1B4B] truncate">{ev.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </aside>
+              </div>
+            </div>
+          )}
+
+        </main>
+
+        {/* Footer */}
+        <footer className="px-6 py-3 border-t border-[#E8E5F0] bg-white text-center text-xs text-[#9B97A8]" role="contentinfo">
+          Graphis MVP · Single-Tenant Architecture · Supabase & pgvector
         </footer>
       </div>
     </div>
