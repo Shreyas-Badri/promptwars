@@ -107,23 +107,60 @@ class GeminiExtraction(AIExtractionService):
         key = os.environ.get("GEMINI_API_KEY")
         if not key: raise Exception("Missing Gemini key")
         genai.configure(api_key=key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        prompt = f"Extract researchers, papers, datasets, methods, and topics. Format as JSON with 'nodes' (id, name, type) and 'relationships' (source_id, target_id, type). Data: {text[:5000]}"
-        response = model.generate_content(prompt)
-        text_resp = response.text
-        start = text_resp.find('{')
-        end = text_resp.rfind('}') + 1
-        return json.loads(text_resp[start:end])
+        
+        prompt = f"Extract researchers, papers, datasets, methods, and topics. Output JSON only with 'nodes' (list of {{id, name, type}}) and 'relationships' (list of {{source_id, target_id, type}}). Data:\n{text[:5000]}"
+        
+        for model_name in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                text_resp = response.text
+                start = text_resp.find('{')
+                end = text_resp.rfind('}') + 1
+                if start != -1 and end != 0:
+                    return json.loads(text_resp[start:end])
+            except Exception as e:
+                logger.warning(f"Gemini model {model_name} failed: {e}")
+                continue
+        raise Exception("All Gemini models failed")
+
+class GroqExtraction(AIExtractionService):
+    async def extract(self, text: str) -> dict:
+        from groq import Groq
+        key = os.environ.get("GROQ_API_KEY")
+        if not key:
+            raise Exception("Missing Groq key")
+        client = Groq(api_key=key)
+        prompt = f"Extract researchers, papers, datasets, methods, and topics from this research data. Output JSON only with 'nodes' (list of {{id, name, type}}) and 'relationships' (list of {{source_id, target_id, type}}). Data:\n{text[:5000]}"
+        
+        for model_id in ["qwen-2.5-32b", "qwen/qwen3-32b", "llama-3.3-70b-versatile", "gemma2-9b-it"]:
+            try:
+                completion = client.chat.completions.create(
+                    model=model_id,
+                    messages=[
+                        {"role": "system", "content": "You are a specialized scientific entity and knowledge graph extractor. Return valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"}
+                )
+                res_content = completion.choices[0].message.content
+                return json.loads(res_content)
+            except Exception as e:
+                logger.warning(f"Groq model {model_id} failed: {e}")
+                continue
+        raise Exception("All Groq models failed")
 
 class FallbackExtractionService(AIExtractionService):
     def __init__(self):
         self.providers = [
-            ("Gemini", GeminiExtraction())
+            ("Gemini", GeminiExtraction()),
+            ("Groq-Qwen", GroqExtraction())
         ]
 
     async def extract(self, text: str) -> dict:
         for name, provider in self.providers:
             try:
+                logger.info(f"Trying extraction provider: {name}")
                 return await provider.extract(text)
             except Exception as e:
                 logger.warning(f"Extraction provider {name} unavailable: {e}")

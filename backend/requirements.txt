@@ -13,3 +13,5 @@ python-dotenv
 PyPDF2
 supabase
 requests
+psycopg2-binary
+
