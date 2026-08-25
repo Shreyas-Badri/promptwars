@@ -30,7 +30,7 @@ class Embedding(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     node_id = Column(UUID(as_uuid=True), ForeignKey("nodes.id", ondelete="CASCADE"))
-    embedding = Column(Vector(384))
+    embedding = Column(Vector(768))
 
 class Relationship(Base):
     __tablename__ = "relationships"

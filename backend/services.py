@@ -69,10 +69,25 @@ class GeminiEmbedding(EmbeddingService):
         key = os.environ.get("GEMINI_API_KEY")
         if not key: raise Exception("Missing Gemini key")
         genai.configure(api_key=key)
-        res = genai.embed_content(model="models/embedding-001", content=texts)
-        if isinstance(res['embedding'][0], list):
-             return res['embedding']
-        return [res['embedding']]
+        
+        results = []
+        for t in texts:
+            for m in ["models/text-embedding-004", "models/embedding-001"]:
+                try:
+                    res = genai.embed_content(model=m, content=t)
+                    emb = res.get('embedding')
+                    if isinstance(emb, dict) and 'values' in emb:
+                        results.append(emb['values'])
+                        break
+                    elif isinstance(emb, list):
+                        results.append(emb)
+                        break
+                except Exception as ex:
+                    logger.warning(f"Gemini model {m} failed: {ex}")
+                    continue
+        if len(results) == len(texts):
+            return results
+        raise Exception("Gemini embedding failed to produce results")
 
 class GroqEmbedding(EmbeddingService):
     async def generate(self, texts: list[str]) -> list[list[float]]:

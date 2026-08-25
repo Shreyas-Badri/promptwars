@@ -92,56 +92,68 @@ async def process_document_pipeline(document_id: str, file_path: str, db_session
         # Store Extracted Nodes
         nodes_map = {}
         for n in extracted_data.get("nodes", []):
-            name = n.get("name", "").strip()
-            ntype = n.get("type", "TOPIC").upper()
-            if not name:
+            try:
+                name = n.get("name", "").strip()
+                ntype = n.get("type", "TOPIC").upper()
+                if not name:
+                    continue
+                    
+                stmt = select(Node).where(Node.name == name, Node.type == ntype)
+                result = await db_session.execute(stmt)
+                existing_node = result.scalar_one_or_none()
+                
+                if not existing_node:
+                    new_node = Node(name=name, type=ntype)
+                    db_session.add(new_node)
+                    await db_session.flush()
+                    nodes_map[n.get("id", name)] = new_node.id
+                    
+                    try:
+                        embed_vecs = await embedding_service.generate([name])
+                        if embed_vecs and len(embed_vecs) > 0:
+                            db_session.add(Embedding(node_id=new_node.id, embedding=embed_vecs[0]))
+                    except Exception as embed_err:
+                        logger.warning(f"Vector embedding skipped for {name}: {embed_err}")
+                else:
+                    nodes_map[n.get("id", name)] = existing_node.id
+            except Exception as node_err:
+                logger.warning(f"Node insert error: {node_err}")
                 continue
-                
-            stmt = select(Node).where(Node.name == name, Node.type == ntype)
-            result = await db_session.execute(stmt)
-            existing_node = result.scalar_one_or_none()
-            
-            if not existing_node:
-                new_node = Node(name=name, type=ntype)
-                db_session.add(new_node)
-                await db_session.flush()
-                nodes_map[n.get("id", name)] = new_node.id
-                
-                try:
-                    embed_vecs = await embedding_service.generate([name])
-                    if embed_vecs and len(embed_vecs) > 0:
-                        db_session.add(Embedding(node_id=new_node.id, embedding=embed_vecs[0]))
-                except Exception as embed_err:
-                    logger.warning(f"Vector embedding generation failed for {name}: {embed_err}")
-            else:
-                nodes_map[n.get("id", name)] = existing_node.id
 
         # Store Extracted Relationships
         for r in extracted_data.get("relationships", []):
-            src_ref = r.get("source_id")
-            tgt_ref = r.get("target_id")
-            rtype = r.get("type", "CONNECTED_TO")
-            
-            src_uuid = nodes_map.get(src_ref)
-            tgt_uuid = nodes_map.get(tgt_ref)
-            
-            if src_uuid and tgt_uuid and src_uuid != tgt_uuid:
-                rel = Relationship(
-                    source_node_id=src_uuid,
-                    target_node_id=tgt_uuid,
-                    type=rtype,
-                    source_document_id=doc.id,
-                    page_section="Extracted Content",
-                    confidence=0.92,
-                    extraction_method="Gemini/Groq Fallback"
-                )
-                db_session.add(rel)
+            try:
+                src_ref = r.get("source_id")
+                tgt_ref = r.get("target_id")
+                rtype = r.get("type", "CONNECTED_TO")
+                
+                src_uuid = nodes_map.get(src_ref)
+                tgt_uuid = nodes_map.get(tgt_ref)
+                
+                if src_uuid and tgt_uuid and src_uuid != tgt_uuid:
+                    rel = Relationship(
+                        source_node_id=src_uuid,
+                        target_node_id=tgt_uuid,
+                        type=rtype,
+                        source_document_id=doc.id,
+                        page_section="Extracted Content",
+                        confidence=0.92,
+                        extraction_method="Gemini/Groq Fallback"
+                    )
+                    db_session.add(rel)
+            except Exception as rel_err:
+                logger.warning(f"Relationship insert error: {rel_err}")
+                continue
 
         doc.status = "COMPLETED"
+        doc.error_message = None
         await db_session.commit()
         
     except Exception as e:
         logger.exception("Error processing document pipeline")
-        doc.status = "FAILED"
-        doc.error_message = str(e)
-        await db_session.commit()
+        try:
+            doc.status = "FAILED"
+            doc.error_message = str(e)
+            await db_session.commit()
+        except Exception:
+            pass

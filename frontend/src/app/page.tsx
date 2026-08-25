@@ -45,6 +45,7 @@ export default function Home() {
   // Ingestion state
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [docId, setDocId] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   
@@ -88,19 +89,47 @@ export default function Home() {
   const handleUpload = async () => {
     if (!file) return;
     setIsUploading(true);
+    setErrorMessage("");
+    setUploadStatus("UPLOADING");
+    
     const formData = new FormData();
     formData.append("file", file);
     try {
-      setUploadStatus("EXTRACTING");
       const res = await axios.post(`${API_BASE}/api/upload`, formData);
-      setDocId(res.data.document_id);
-      setUploadStatus("EMBEDDING");
-      setTimeout(() => {
-        setUploadStatus("COMPLETED");
+      if (res.data.document_id) {
+        const id = res.data.document_id;
+        setDocId(id);
+        setUploadStatus("EXTRACTING");
+        
+        // Auto-poll status
+        let attempts = 0;
+        const interval = setInterval(async () => {
+          attempts++;
+          try {
+            const statusRes = await axios.get(`${API_BASE}/api/status/${id}`);
+            if (statusRes.data.status) {
+              setUploadStatus(statusRes.data.status);
+              if (statusRes.data.error_message) {
+                setErrorMessage(statusRes.data.error_message);
+              }
+              if (statusRes.data.status === "COMPLETED" || statusRes.data.status === "FAILED" || attempts > 20) {
+                clearInterval(interval);
+                setIsUploading(false);
+              }
+            }
+          } catch (pollErr: any) {
+            clearInterval(interval);
+            setIsUploading(false);
+          }
+        }, 2000);
+      } else if (res.data.error) {
+        setUploadStatus("FAILED");
+        setErrorMessage(res.data.error);
         setIsUploading(false);
-      }, 2000);
-    } catch (e) {
+      }
+    } catch (e: any) {
       setUploadStatus("FAILED");
+      setErrorMessage(e.response?.data?.error || e.message || "Upload request failed");
       setIsUploading(false);
     }
   };
@@ -111,9 +140,12 @@ export default function Home() {
       const res = await axios.get(`${API_BASE}/api/status/${docId}`);
       if (res.data.status) {
         setUploadStatus(res.data.status);
+        if (res.data.error_message) {
+          setErrorMessage(res.data.error_message);
+        }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorMessage(e.message || "Failed to check status");
     }
   };
 
@@ -255,13 +287,20 @@ export default function Home() {
               </button>
 
               {uploadStatus && (
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs">
-                  <span className="text-slate-600">
-                    Status: <span className="font-semibold text-slate-900 uppercase ml-1">{uploadStatus}</span>
-                  </span>
-                  <button onClick={checkStatus} title="Refresh status" className="text-slate-500 hover:text-slate-800 p-0.5">
-                    <RefreshCw size={13} />
-                  </button>
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">
+                      Status: <span className={`font-semibold uppercase ml-1 ${uploadStatus === 'COMPLETED' ? 'text-emerald-700' : uploadStatus === 'FAILED' ? 'text-rose-700' : 'text-slate-900'}`}>{uploadStatus}</span>
+                    </span>
+                    <button onClick={checkStatus} title="Refresh status" className="text-slate-500 hover:text-slate-800 p-0.5">
+                      <RefreshCw size={13} />
+                    </button>
+                  </div>
+                  {errorMessage && (
+                    <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-200 p-1.5 rounded">
+                      {errorMessage}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
