@@ -16,38 +16,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from sqlalchemy import text
+import logging
+
+logger = logging.getLogger(__name__)
+
 @app.on_event("startup")
 async def startup():
-    pass
+    try:
+        async with engine.begin() as conn:
+            try:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            except Exception as ex:
+                logger.warning(f"Vector extension creation skipped: {ex}")
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables initialized successfully on startup.")
+    except Exception as e:
+        logger.error(f"Startup DB init error: {e}")
 
 @app.post("/api/upload")
 async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    # 1. Validate file extension/size
-    allowed_extensions = {".pdf", ".md", ".zip"}
+    allowed_extensions = {".pdf", ".md", ".zip", ".txt"}
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in allowed_extensions:
-        return {"error": "Invalid file type"}
+        return {"error": "Invalid file type. Supported: .pdf, .md, .zip, .txt"}
 
-    # 2. Upload file via Storage Service
+    # Save to local storage for worker access
+    local_dir = "/tmp/uploads" if os.path.exists("/tmp") else "uploads"
+    os.makedirs(local_dir, exist_ok=True)
+    file_id = str(uuid.uuid4())
+    local_filename = f"{file_id}_{file.filename}"
+    local_file_path = os.path.join(local_dir, local_filename)
+
+    file_bytes = await file.read()
+    with open(local_file_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Optional remote storage upload
     from services import SupabaseStorage
     storage = SupabaseStorage()
-    file_bytes = await file.read()
-    file_path = f"{uuid.uuid4()}_{file.filename}"
-    public_url = await storage.upload(file_path, file_bytes)
+    remote_url = await storage.upload(local_filename, file_bytes)
         
-    # 3. Create Document record
     new_doc = Document(
         filename=file.filename,
         file_type=ext,
-        file_path=public_url, # Now storing the remote URL
+        file_path=remote_url or local_file_path,
         status="UPLOADED"
     )
     db.add(new_doc)
     await db.commit()
     await db.refresh(new_doc)
     
-    # 4. Enqueue background task for extraction
-    background_tasks.add_task(process_document, new_doc.id, public_url)
+    # Process document in background using local cached file
+    background_tasks.add_task(process_document, new_doc.id, local_file_path)
     
     return {"message": "File uploaded successfully", "document_id": str(new_doc.id)}
 
