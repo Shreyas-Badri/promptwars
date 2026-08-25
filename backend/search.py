@@ -26,21 +26,26 @@ async def semantic_search(query: str, db: AsyncSession, limit: int = 10):
         .order_by(text("distance ASC"))
         .limit(limit)
     )
-    result = await db.execute(stmt)
-    rows = result.all()
-    
-    # If no results and distance is too far, fallback?
+    try:
+        result = await db.execute(stmt)
+        rows = result.all()
+    except Exception:
+        return await text_search(query, db, limit)
+        
     if not rows:
         return await text_search(query, db, limit)
         
     return [{"node": row.Node, "distance": row.distance} for row in rows]
 
 async def text_search(query: str, db: AsyncSession, limit: int = 10):
-    stmt = (
-        select(Node)
-        .where(Node.name.ilike(f"%{query}%"))
-        .limit(limit)
-    )
-    result = await db.execute(stmt)
-    nodes = result.scalars().all()
-    return [{"node": node, "distance": None} for node in nodes]
+    try:
+        stmt = (
+            select(Node)
+            .where(Node.name.ilike(f"%{query}%"))
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        nodes = result.scalars().all()
+        return [{"node": node, "distance": None} for node in nodes]
+    except Exception:
+        return []

@@ -104,10 +104,8 @@ class HuggingFaceEmbedding(EmbeddingService):
 class FallbackEmbeddingService(EmbeddingService):
     def __init__(self):
         self.providers = [
-            ("Supabase Local gte-small", LocalGteEmbedding()),
             ("Gemini", GeminiEmbedding()),
-            ("Groq", GroqEmbedding()),
-            ("HuggingFace", HuggingFaceEmbedding())
+            ("Supabase Local gte-small", LocalGteEmbedding())
         ]
 
     async def generate(self, texts: list[str]) -> list[list[float]]:
