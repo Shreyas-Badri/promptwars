@@ -29,11 +29,20 @@ if "supabase" in raw_url or "sslmode=require" in settings.DATABASE_URL or "amazo
     connect_args["ssl"] = ssl_context
     connect_args["statement_cache_size"] = 0
 
-engine = create_async_engine(clean_url, connect_args=connect_args, echo=True)
+engine = create_async_engine(
+    clean_url, 
+    connect_args=connect_args, 
+    echo=False,
+    pool_pre_ping=True
+)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()
 
 async def get_db():
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+        except Exception as ex:
+            await session.rollback()
+            raise ex

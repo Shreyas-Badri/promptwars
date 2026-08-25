@@ -13,6 +13,36 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Graphis MVP API")
 
+@app.middleware("http")
+async def cors_and_error_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return JSONResponse(
+            status_code=200,
+            content={"status": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    try:
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+    except Exception as exc:
+        logger.exception(f"Unhandled server error on {request.url.path}: {exc}")
+        return JSONResponse(
+            status_code=200,
+            content={"error": str(exc), "status": "FAILED", "error_message": str(exc)},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,14 +51,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.exception(f"Unhandled error on {request.url.path}: {exc}")
-    return JSONResponse(
-        status_code=200,
-        content={"error": str(exc), "status": "FAILED", "error_message": str(exc)}
-    )
 
 from sqlalchemy import text
 import logging

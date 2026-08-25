@@ -23,12 +23,21 @@ interface GraphViewProps {
   selectedNodeId?: string | null;
 }
 
+// Vivid, high-contrast colors against dark background
 const TYPE_COLORS: Record<string, string> = {
-  RESEARCHER: '#1e40af', // Blue 800
-  PAPER: '#065f46',      // Emerald 800
-  DATASET: '#92400e',    // Amber 800
-  METHOD: '#6b21a8',     // Purple 800
-  TOPIC: '#075985',      // Sky 800
+  RESEARCHER: '#60A5FA', // Bright blue
+  PAPER: '#4ADE80',      // Bright green
+  DATASET: '#FBBF24',    // Bright amber
+  METHOD: '#C084FC',     // Bright purple
+  TOPIC: '#22D3EE',      // Bright cyan
+};
+
+const TYPE_GLOW: Record<string, string> = {
+  RESEARCHER: 'rgba(96, 165, 250, 0.4)',
+  PAPER: 'rgba(74, 222, 128, 0.4)',
+  DATASET: 'rgba(251, 191, 36, 0.4)',
+  METHOD: 'rgba(192, 132, 252, 0.4)',
+  TOPIC: 'rgba(34, 211, 238, 0.4)',
 };
 
 export default function GraphView({
@@ -46,7 +55,7 @@ export default function GraphView({
         id: n.id,
         label: n.name,
         type: n.type,
-        color: TYPE_COLORS[n.type.toUpperCase()] || '#475569',
+        color: TYPE_COLORS[n.type.toUpperCase()] || '#9B97A0',
         selected: n.id === selectedNodeId ? 'yes' : 'no',
       },
     })),
@@ -67,46 +76,55 @@ export default function GraphView({
         label: 'data(label)',
         'text-valign': 'bottom',
         'text-halign': 'center',
-        'text-margin-y': 4,
-        color: '#0f172a',
+        'text-margin-y': 6,
+        color: '#E8E6E1',
         'font-size': '11px',
-        'font-family': 'ui-sans-serif, system-ui, sans-serif',
+        'font-family': 'DM Sans, ui-sans-serif, system-ui, sans-serif',
         'font-weight': 600,
+        'text-outline-color': '#0C0F1A',
+        'text-outline-width': 2,
         'background-color': 'data(color)',
-        width: '38px',
-        height: '38px',
+        width: '44px',
+        height: '44px',
         'border-width': 2,
-        'border-color': '#ffffff',
-        'transition-property': 'background-color, border-color, width, height',
-        'transition-duration': '0.15s',
+        'border-color': '#1E2340',
+        'transition-property': 'background-color, border-color, width, height, border-width',
+        'transition-duration': '0.2s',
       },
     },
     {
       selector: 'node[selected = "yes"]',
       style: {
-        'border-color': '#0284c7',
+        'border-color': '#D4A853',
         'border-width': 4,
-        width: '46px',
-        height: '46px',
+        width: '52px',
+        height: '52px',
+      },
+    },
+    {
+      selector: 'node:active',
+      style: {
+        'overlay-opacity': 0.1,
+        'overlay-color': '#D4A853',
       },
     },
     {
       selector: 'edge',
       style: {
         width: 1.5,
-        'line-color': '#cbd5e1',
-        'target-arrow-color': '#94a3b8',
+        'line-color': 'rgba(255, 255, 255, 0.12)',
+        'target-arrow-color': 'rgba(255, 255, 255, 0.25)',
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
         label: 'data(label)',
         'font-size': '9px',
-        'font-family': 'ui-sans-serif, system-ui, sans-serif',
+        'font-family': 'JetBrains Mono, monospace',
         'text-rotation': 'autorotate',
-        'text-background-color': '#ffffff',
+        'text-background-color': '#141828',
         'text-background-opacity': 0.95,
-        'text-background-padding': 2,
+        'text-background-padding': 3,
         'text-background-shape': 'roundrectangle',
-        color: '#475569',
+        color: '#9B97A0',
       },
     },
   ];
@@ -130,65 +148,82 @@ export default function GraphView({
   };
 
   return (
-    <div className="relative w-full h-[480px] rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
-      {/* Top Toolbar */}
-      <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs text-xs font-medium text-slate-700">
-        <span className="text-slate-500 text-[11px]">Layout:</span>
+    <div className="relative w-full h-[600px] rounded-xl border border-white/[0.08] bg-[#0C0F1A] overflow-hidden" role="img" aria-label="Interactive knowledge graph visualization. Click nodes to explore connections.">
+      {/* Top Toolbar — Layout */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#141828]/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs" role="toolbar" aria-label="Graph layout options">
+        <span className="text-[#6B6775] text-[11px] mr-1" style={{ fontFamily: 'var(--font-mono)' }}>Layout</span>
         <button
           onClick={() => setLayoutName('cose')}
-          className={`px-2 py-0.5 rounded text-[11px] transition-colors ${layoutName === 'cose' ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}`}
+          aria-pressed={layoutName === 'cose'}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200 min-h-[32px] ${
+            layoutName === 'cose' 
+              ? 'bg-[#D4A853] text-[#0C0F1A]' 
+              : 'hover:bg-white/[0.06] text-[#9B97A0]'
+          }`}
         >
           CoSE Force
         </button>
         <button
           onClick={() => setLayoutName('concentric')}
-          className={`px-2 py-0.5 rounded text-[11px] transition-colors ${layoutName === 'concentric' ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}`}
+          aria-pressed={layoutName === 'concentric'}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200 min-h-[32px] ${
+            layoutName === 'concentric' 
+              ? 'bg-[#D4A853] text-[#0C0F1A]' 
+              : 'hover:bg-white/[0.06] text-[#9B97A0]'
+          }`}
         >
           Concentric
         </button>
         <button
           onClick={() => setLayoutName('circle')}
-          className={`px-2 py-0.5 rounded text-[11px] transition-colors ${layoutName === 'circle' ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}`}
+          aria-pressed={layoutName === 'circle'}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200 min-h-[32px] ${
+            layoutName === 'circle' 
+              ? 'bg-[#D4A853] text-[#0C0F1A]' 
+              : 'hover:bg-white/[0.06] text-[#9B97A0]'
+          }`}
         >
           Radial
         </button>
       </div>
 
       {/* Zoom / Reset Toolbar */}
-      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 bg-white p-1 rounded-md border border-slate-200 shadow-2xs text-slate-600">
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-[#141828]/95 backdrop-blur-sm p-1 rounded-lg border border-white/[0.08]" role="toolbar" aria-label="Graph zoom controls">
         <button
           onClick={handleZoomIn}
-          title="Zoom In"
-          className="p-1 hover:bg-slate-100 rounded text-slate-700 transition-colors"
+          aria-label="Zoom in"
+          className="p-2 hover:bg-white/[0.08] rounded-md text-[#9B97A0] hover:text-[#E8E6E1] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
         >
-          <ZoomIn size={15} />
+          <ZoomIn size={16} aria-hidden="true" />
         </button>
         <button
           onClick={handleZoomOut}
-          title="Zoom Out"
-          className="p-1 hover:bg-slate-100 rounded text-slate-700 transition-colors"
+          aria-label="Zoom out"
+          className="p-2 hover:bg-white/[0.08] rounded-md text-[#9B97A0] hover:text-[#E8E6E1] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
         >
-          <ZoomOut size={15} />
+          <ZoomOut size={16} aria-hidden="true" />
         </button>
+        <div className="w-px h-5 bg-white/[0.08] mx-0.5" aria-hidden="true" />
         <button
           onClick={handleFit}
-          title="Reset View"
-          className="p-1 hover:bg-slate-100 rounded text-slate-700 transition-colors"
+          aria-label="Reset view to fit all nodes"
+          className="p-2 hover:bg-white/[0.08] rounded-md text-[#9B97A0] hover:text-[#E8E6E1] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
         >
-          <Maximize2 size={15} />
+          <Maximize2 size={16} aria-hidden="true" />
         </button>
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-2.5 left-2.5 z-10 flex flex-wrap items-center gap-2.5 bg-white/95 px-3 py-1.5 rounded-md border border-slate-200 text-[11px] text-slate-600">
-        <span className="font-semibold text-slate-800">Entity Types:</span>
+      <div className="absolute bottom-3 left-3 z-10 flex flex-wrap items-center gap-3 bg-[#141828]/95 backdrop-blur-sm px-3.5 py-2 rounded-lg border border-white/[0.08] text-[11px]" aria-label="Graph legend: entity types and their colors">
+        <span className="font-semibold text-[#9B97A0]" style={{ fontFamily: 'var(--font-mono)' }}>Entities</span>
         {Object.entries(TYPE_COLORS).map(([type, color]) => (
-          <div key={type} className="flex items-center gap-1">
+          <div key={type} className="flex items-center gap-1.5">
             <span
-              className="w-2.5 h-2.5 rounded-sm inline-block"
-              style={{ backgroundColor: color }}
+              className="w-3 h-3 rounded-full inline-block"
+              style={{ backgroundColor: color, boxShadow: `0 0 6px ${TYPE_GLOW[type] || 'transparent'}` }}
+              aria-hidden="true"
             />
-            <span>{type}</span>
+            <span className="text-[#9B97A0]">{type}</span>
           </div>
         ))}
       </div>
