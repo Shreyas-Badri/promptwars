@@ -30,25 +30,29 @@ class SupabaseStorage(StorageService):
         try:
             from supabase import create_client
             self.client = create_client(url, key) if url and key else None
-        except:
+        except Exception as ex:
+            logger.warning(f"Supabase client init skipped: {ex}")
             self.client = None
 
     async def upload(self, file_path: str, file_bytes: bytes) -> str:
         if not self.client:
-            # Fallback to local
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, "wb") as f:
-                f.write(file_bytes)
             return file_path
         
-        bucket = "documents"
         try:
-            self.client.storage.get_bucket(bucket)
-        except:
-            self.client.storage.create_bucket(bucket)
-            
-        self.client.storage.from_(bucket).upload(file_path, file_bytes)
-        return self.client.storage.from_(bucket).get_public_url(file_path)
+            bucket = "documents"
+            try:
+                self.client.storage.get_bucket(bucket)
+            except Exception:
+                try:
+                    self.client.storage.create_bucket(bucket, options={"public": True})
+                except Exception:
+                    pass
+                
+            self.client.storage.from_(bucket).upload(file_path, file_bytes, file_options={"upsert": "true"})
+            return self.client.storage.from_(bucket).get_public_url(file_path)
+        except Exception as e:
+            logger.warning(f"Supabase remote storage upload bypassed: {e}")
+            return file_path
 
 # --- Embedding Adapters ---
 class LocalGteEmbedding(EmbeddingService):

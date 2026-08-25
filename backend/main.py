@@ -41,7 +41,7 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
     if ext not in allowed_extensions:
         return {"error": "Invalid file type. Supported: .pdf, .md, .zip, .txt"}
 
-    # Save to local storage for worker access
+    # Save to local storage instantly
     local_dir = "/tmp/uploads" if os.path.exists("/tmp") else "uploads"
     os.makedirs(local_dir, exist_ok=True)
     file_id = str(uuid.uuid4())
@@ -51,23 +51,18 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
     file_bytes = await file.read()
     with open(local_file_path, "wb") as f:
         f.write(file_bytes)
-
-    # Optional remote storage upload
-    from services import SupabaseStorage
-    storage = SupabaseStorage()
-    remote_url = await storage.upload(local_filename, file_bytes)
         
     new_doc = Document(
         filename=file.filename,
         file_type=ext,
-        file_path=remote_url or local_file_path,
+        file_path=local_file_path,
         status="UPLOADED"
     )
     db.add(new_doc)
     await db.commit()
     await db.refresh(new_doc)
     
-    # Process document in background using local cached file
+    # Process document in background worker (including async storage & extraction)
     background_tasks.add_task(process_document, new_doc.id, local_file_path)
     
     return {"message": "File uploaded successfully", "document_id": str(new_doc.id)}
