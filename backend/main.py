@@ -2,10 +2,19 @@ from fastapi import FastAPI, UploadFile, File, BackgroundTasks, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db, engine, Base
 from models import Document
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import os
 
 app = FastAPI(title="Graphis MVP API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup():
@@ -38,7 +47,7 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
     await db.refresh(new_doc)
     
     # 4. Enqueue background task for extraction
-    background_tasks.add_task(process_document, new_doc.id, file_path)
+    background_tasks.add_task(process_document, new_doc.id, public_url)
     
     return {"message": "File uploaded successfully", "document_id": str(new_doc.id)}
 

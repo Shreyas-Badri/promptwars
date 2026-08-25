@@ -7,6 +7,8 @@ import { Upload, Search, Activity, RefreshCw } from 'lucide-react';
 
 const GraphView = dynamic(() => import('@/components/GraphView'), { ssr: false });
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://promptwars-seqg.onrender.com";
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>("");
@@ -23,7 +25,7 @@ export default function Home() {
     formData.append("file", file);
     try {
       setUploadStatus("Uploading...");
-      const res = await axios.post("http://localhost:8000/api/upload", formData);
+      const res = await axios.post(`${API_BASE}/api/upload`, formData);
       setDocId(res.data.document_id);
       setUploadStatus("UPLOADED");
     } catch (e) {
@@ -34,7 +36,7 @@ export default function Home() {
   const checkStatus = async () => {
     if (!docId) return;
     try {
-      const res = await axios.get(`http://localhost:8000/api/status/${docId}`);
+      const res = await axios.get(`${API_BASE}/api/status/${docId}`);
       setUploadStatus(res.data.status);
     } catch (e) {
       console.error(e);
@@ -44,7 +46,7 @@ export default function Home() {
   const handleSearch = async () => {
     if (!searchQuery) return;
     try {
-      const res = await axios.get(`http://localhost:8000/api/search?query=${searchQuery}`);
+      const res = await axios.get(`${API_BASE}/api/search?query=${searchQuery}`);
       setSearchResults(res.data.results);
     } catch (e) {
       console.error(e);
@@ -53,7 +55,7 @@ export default function Home() {
 
   const loadGraph = async (nodeId: string) => {
     try {
-      const res = await axios.get(`http://localhost:8000/api/graph/${nodeId}`);
+      const res = await axios.get(`${API_BASE}/api/graph/${nodeId}`);
       setGraphData(res.data);
     } catch (e) {
       console.error(e);
