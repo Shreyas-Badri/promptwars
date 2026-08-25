@@ -3,18 +3,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db, engine, Base
 from models import Document
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
+from fastapi.responses import JSONResponse
 import uuid
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Graphis MVP API")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled error on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=200,
+        content={"error": str(exc), "status": "FAILED", "error_message": str(exc)}
+    )
 
 from sqlalchemy import text
 import logging
