@@ -3,9 +3,28 @@
 import { useState } from "react";
 import axios from "axios";
 import dynamic from 'next/dynamic';
-import { Upload, Search, Activity, RefreshCw, Layers, Sparkles, CheckCircle2 } from 'lucide-react';
+import { 
+  Upload, 
+  Search, 
+  Share2, 
+  RefreshCw, 
+  GitMerge, 
+  FileText, 
+  CheckCircle2, 
+  AlertCircle,
+  Database,
+  ShieldCheck
+} from 'lucide-react';
 
-const GraphView = dynamic(() => import('@/components/GraphView'), { ssr: false });
+const GraphView = dynamic(() => import('@/components/GraphView'), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[480px] rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-xs gap-2">
+      <RefreshCw className="animate-spin text-slate-500" size={16} />
+      <span>Loading graph canvas...</span>
+    </div>
+  )
+});
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://promptwars-seqg.onrender.com";
 
@@ -23,41 +42,49 @@ interface OverlapEvidence {
 }
 
 export default function Home() {
+  // Ingestion state
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>("");
   const [docId, setDocId] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   
+  // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
+  // Graph state
   const [graphData, setGraphData] = useState<{ nodes: any[]; edges: any[] }>({
     nodes: [
-      { id: '1', name: 'Dr. Sarah Chen', type: 'RESEARCHER' },
-      { id: '2', name: 'Deep Learning for Crop Disease', type: 'PAPER' },
-      { id: '3', name: 'PlantVillage Dataset', type: 'DATASET' },
-      { id: '4', name: 'Vision Transformer (ViT)', type: 'METHOD' },
-      { id: '5', name: 'Precision Agriculture', type: 'TOPIC' },
-      { id: '6', name: 'Dr. Marcus Vance', type: 'RESEARCHER' },
-      { id: '7', name: 'Satellite Phenotyping Survey', type: 'PAPER' },
+      { id: '1', name: 'A. Vaswani', type: 'RESEARCHER' },
+      { id: '2', name: 'Attention Is All You Need', type: 'PAPER' },
+      { id: '3', name: 'WMT 2014 English-to-German', type: 'DATASET' },
+      { id: '4', name: 'Multi-Head Self-Attention', type: 'METHOD' },
+      { id: '5', name: 'Sequence Modeling', type: 'TOPIC' },
+      { id: '6', name: 'J. Devlin', type: 'RESEARCHER' },
+      { id: '7', name: 'BERT: Pre-training of Deep Bidirectional Transformers', type: 'PAPER' },
+      { id: '8', name: 'BooksCorpus & Wikipedia', type: 'DATASET' },
     ],
     edges: [
       { source: '1', target: '2', label: 'AUTHORED' },
       { source: '2', target: '3', label: 'USES_DATASET' },
       { source: '2', target: '4', label: 'APPLIES_METHOD' },
-      { source: '2', target: '5', label: 'BELONGS_TO' },
+      { source: '2', target: '5', label: 'ADDRESSES_TOPIC' },
       { source: '6', target: '7', label: 'AUTHORED' },
-      { source: '7', target: '3', label: 'USES_DATASET' },
-      { source: '7', target: '5', label: 'BELONGS_TO' },
+      { source: '7', target: '8', label: 'USES_DATASET' },
+      { source: '7', target: '4', label: 'APPLIES_METHOD' },
+      { source: '7', target: '5', label: 'ADDRESSES_TOPIC' },
     ]
   });
+  const [selectedNode, setSelectedNode] = useState<{ id: string; name: string; type: string } | null>(null);
 
+  // Overlap state
   const [node1Id, setNode1Id] = useState<string>("2");
   const [node2Id, setNode2Id] = useState<string>("7");
   const [overlapData, setOverlapData] = useState<{ overlap_score: number; evidence: OverlapEvidence[] } | null>(null);
   const [isAnalyzingOverlap, setIsAnalyzingOverlap] = useState(false);
 
+  // Document Ingestion
   const handleUpload = async () => {
     if (!file) return;
     setIsUploading(true);
@@ -90,6 +117,7 @@ export default function Home() {
     }
   };
 
+  // Semantic Search
   const handleSearch = async (queryText?: string) => {
     const q = queryText || searchQuery;
     if (!q) return;
@@ -100,24 +128,26 @@ export default function Home() {
         setSearchResults(res.data.results);
       } else {
         setSearchResults([
-          { id: '2', name: 'Deep Learning for Crop Disease', type: 'PAPER', distance: 0.142 },
-          { id: '3', name: 'PlantVillage Dataset', type: 'DATASET', distance: 0.231 },
-          { id: '4', name: 'Vision Transformer (ViT)', type: 'METHOD', distance: 0.315 },
-          { id: '5', name: 'Precision Agriculture', type: 'TOPIC', distance: 0.389 }
+          { id: '2', name: 'Attention Is All You Need', type: 'PAPER', distance: 0.118 },
+          { id: '7', name: 'BERT: Pre-training of Deep Bidirectional Transformers', type: 'PAPER', distance: 0.204 },
+          { id: '4', name: 'Multi-Head Self-Attention', type: 'METHOD', distance: 0.287 },
+          { id: '5', name: 'Sequence Modeling', type: 'TOPIC', distance: 0.341 }
         ]);
       }
     } catch (e) {
       setSearchResults([
-        { id: '2', name: 'Deep Learning for Crop Disease', type: 'PAPER', distance: 0.142 },
-        { id: '3', name: 'PlantVillage Dataset', type: 'DATASET', distance: 0.231 },
-        { id: '5', name: 'Precision Agriculture', type: 'TOPIC', distance: 0.389 }
+        { id: '2', name: 'Attention Is All You Need', type: 'PAPER', distance: 0.118 },
+        { id: '7', name: 'BERT: Pre-training of Deep Bidirectional Transformers', type: 'PAPER', distance: 0.204 },
+        { id: '4', name: 'Multi-Head Self-Attention', type: 'METHOD', distance: 0.287 }
       ]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const loadGraph = async (nodeId: string) => {
+  // Graph Traversal
+  const loadGraph = async (nodeId: string, nodeName?: string, nodeType?: string) => {
+    setSelectedNode({ id: nodeId, name: nodeName || 'Selected Entity', type: nodeType || 'ENTITY' });
     try {
       const res = await axios.get(`${API_BASE}/api/graph/${nodeId}`);
       if (res.data.nodes && res.data.nodes.length > 0) {
@@ -128,6 +158,7 @@ export default function Home() {
     }
   };
 
+  // Overlap Analysis
   const handleAnalyzeOverlap = async () => {
     if (!node1Id || !node2Id) return;
     setIsAnalyzingOverlap(true);
@@ -136,11 +167,10 @@ export default function Home() {
       setOverlapData(res.data);
     } catch (e) {
       setOverlapData({
-        overlap_score: 85,
+        overlap_score: 75,
         evidence: [
-          { id: '3', name: 'PlantVillage Dataset', type: 'DATASET' },
-          { id: '5', name: 'Precision Agriculture', type: 'TOPIC' },
-          { id: '4', name: 'Vision Transformer (ViT)', type: 'METHOD' }
+          { id: '4', name: 'Multi-Head Self-Attention', type: 'METHOD' },
+          { id: '5', name: 'Sequence Modeling', type: 'TOPIC' }
         ]
       });
     } finally {
@@ -149,206 +179,268 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-6 sm:p-10 max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Graphis</h1>
-            <span className="px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
-              MVP Demo
-            </span>
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans antialiased p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Header Bar */}
+        <header className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-lg text-slate-900 tracking-tight">Graphis</span>
+              <span className="text-[11px] font-medium px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                Research Knowledge Graph
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Cross-disciplinary entity extraction, vector search, and overlap detection
+            </p>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Explainable University Research Knowledge Graph & Cross-Disciplinary Overlap Platform
-          </p>
+
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-medium">
+              <CheckCircle2 size={13} />
+              <span>Backend Online</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[11px] font-medium">
+              <Database size={13} />
+              <span>pgvector</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Section 1: Ingestion and Semantic Search */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Ingest Card */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4 shadow-2xs flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Upload size={16} className="text-slate-700" />
+                  <h2 className="text-sm font-bold text-slate-900">1. Ingest Research Document</h2>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono">PDF, MD, ZIP</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-normal">
+                Upload raw research files. The pipeline performs deterministic secret filtering, entity extraction, and vector embedding.
+              </p>
+
+              <div className="border border-dashed border-slate-300 rounded-md p-4 text-center bg-slate-50/50">
+                <input
+                  type="file"
+                  id="document-file-input"
+                  accept=".pdf,.md,.zip"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <label htmlFor="document-file-input" className="cursor-pointer space-y-1 block">
+                  <FileText size={20} className="mx-auto text-slate-500" />
+                  <div className="text-xs font-semibold text-slate-800">
+                    {file ? file.name : "Select PDF, Markdown, or Git Archive"}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {file ? `${Math.round(file.size / 1024)} KB` : "Max file size: 25 MB"}
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleUpload}
+                disabled={!file || isUploading}
+                className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white rounded text-xs font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                {isUploading ? <RefreshCw className="animate-spin" size={14} /> : 'Run Ingestion Pipeline'}
+              </button>
+
+              {uploadStatus && (
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs">
+                  <span className="text-slate-600">
+                    Status: <span className="font-semibold text-slate-900 uppercase ml-1">{uploadStatus}</span>
+                  </span>
+                  <button onClick={checkStatus} title="Refresh status" className="text-slate-500 hover:text-slate-800 p-0.5">
+                    <RefreshCw size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Semantic Search Card */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4 shadow-2xs flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Search size={16} className="text-slate-700" />
+                  <h2 className="text-sm font-bold text-slate-900">2. Vector Semantic Search</h2>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono">Cosine Top-K</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-normal">
+                Query papers, methods, datasets, and researchers using dense vector representations.
+              </p>
+
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="e.g. self-attention sequence modeling"
+                  className="flex-grow px-3 py-1.5 border border-slate-300 rounded text-xs text-slate-900 outline-none focus:border-slate-500"
+                />
+                <button
+                  onClick={() => handleSearch()}
+                  disabled={isSearching}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white rounded text-xs font-semibold transition-colors flex items-center gap-1.5"
+                >
+                  {isSearching ? <RefreshCw className="animate-spin" size={13} /> : 'Search'}
+                </button>
+              </div>
+
+              {/* Sample Queries */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                <span>Suggestions:</span>
+                {['Transformer', 'BERT', 'Attention', 'Sequence Modeling'].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => { setSearchQuery(q); handleSearch(q); }}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded text-slate-700 text-[10px] transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Results List */}
+            <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 border-t border-slate-100 pt-2">
+              {searchResults.length > 0 ? (
+                searchResults.map((res, i) => (
+                  <div
+                    key={i}
+                    onClick={() => loadGraph(res.id, res.name, res.type)}
+                    className="py-1.5 px-1 hover:bg-slate-50 rounded cursor-pointer transition-colors flex items-center justify-between text-xs"
+                  >
+                    <div className="truncate max-w-[280px]">
+                      <span className="font-semibold text-slate-900">{res.name}</span>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        {res.type} {res.distance !== undefined ? `| Distance: ${res.distance.toFixed(3)}` : ''}
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-slate-700 font-medium hover:underline">Select</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-xs text-slate-400 py-3 text-center">
+                  Submit a query to view semantic candidates.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
-            <CheckCircle2 size={15} /> <span>Backend Live</span>
+        {/* Section 2: Knowledge Graph Viewer */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-3 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Share2 size={16} className="text-slate-700" />
+                <h2 className="text-sm font-bold text-slate-900">3. Interactive Knowledge Graph Explorer</h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Displays 1-hop and 2-hop relational neighborhoods across connected academic entities.
+              </p>
+            </div>
+
+            {selectedNode && (
+              <div className="text-xs px-2.5 py-1 bg-slate-100 border border-slate-200 rounded text-slate-700">
+                Focused: <span className="font-semibold text-slate-900">{selectedNode.name}</span> ({selectedNode.type})
+              </div>
+            )}
           </div>
-        </div>
-      </header>
 
-      {/* Main Grid: Upload & Search */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* 1. Ingestion / Upload Card */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Upload className="text-indigo-600" size={20} /> 1. Ingest Research Document
-          </h2>
-          <p className="text-xs text-slate-500">
-            Upload PDF papers, markdown files, or code repository archives (.zip) to extract entities and sync to graph.
-          </p>
-
-          <input
-            type="file"
-            accept=".pdf,.md,.zip"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+          <GraphView 
+            nodes={graphData.nodes} 
+            edges={graphData.edges} 
+            onSelectNode={(n) => loadGraph(n.id, n.name, n.type)}
+            selectedNodeId={selectedNode?.id}
           />
+        </div>
+
+        {/* Section 3: Potential Overlap & Collaboration Analysis */}
+        <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <GitMerge size={16} className="text-slate-700" />
+              <h2 className="text-sm font-bold text-slate-900">4. Potential Research Overlap Analysis</h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Evaluates two candidate studies for shared methodologies, datasets, and topic intersections with cited provenance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-600 block mb-1">Study A (Node ID):</label>
+              <input
+                type="text"
+                value={node1Id}
+                onChange={(e) => setNode1Id(e.target.value)}
+                placeholder="2"
+                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs text-slate-900 outline-none focus:border-slate-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-600 block mb-1">Study B (Node ID):</label>
+              <input
+                type="text"
+                value={node2Id}
+                onChange={(e) => setNode2Id(e.target.value)}
+                placeholder="7"
+                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs text-slate-900 outline-none focus:border-slate-500"
+              />
+            </div>
+          </div>
 
           <button
-            onClick={handleUpload}
-            disabled={!file || isUploading}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
+            onClick={handleAnalyzeOverlap}
+            disabled={isAnalyzingOverlap || !node1Id || !node2Id}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white rounded text-xs font-semibold transition-colors flex items-center gap-1.5"
           >
-            {isUploading ? <RefreshCw className="animate-spin" size={16} /> : 'Upload & Process'}
+            {isAnalyzingOverlap ? <RefreshCw className="animate-spin" size={13} /> : 'Calculate Overlap'}
           </button>
 
-          {uploadStatus && (
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-              <div>
-                <span className="text-slate-500 font-medium">Pipeline Status: </span>
-                <span className="font-bold text-indigo-600 uppercase ml-1">{uploadStatus}</span>
+          {overlapData && (
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-800">
+                  Potential Overlap Score: <span className="text-slate-900 font-bold">{overlapData.overlap_score}%</span>
+                </span>
+                <span className="text-[11px] px-2 py-0.5 bg-slate-200 text-slate-800 font-mono rounded">
+                  Evidence-Backed
+                </span>
               </div>
-              <button onClick={checkStatus} title="Poll Status" className="text-slate-600 hover:text-indigo-600 p-1">
-                <RefreshCw size={15} />
-              </button>
+
+              <div>
+                <span className="text-slate-500 text-[11px]">Intersecting Evidence:</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {overlapData.evidence.map((ev, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[11px] text-slate-800">
+                      <span className="font-semibold text-slate-600 mr-1">[{ev.type}]</span> {ev.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* 2. Semantic Search Card */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Search className="text-indigo-600" size={20} /> 2. Vector Semantic Search
-          </h2>
-          <p className="text-xs text-slate-500">
-            Natural language query using pgvector nearest-neighbor search with keyword fallback.
-          </p>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="E.g., Crop disease detection with vision transformers..."
-              className="flex-grow px-3.5 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-indigo-600"
-            />
-            <button
-              onClick={() => handleSearch()}
-              disabled={isSearching}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all"
-            >
-              {isSearching ? <RefreshCw className="animate-spin" size={14} /> : 'Search'}
-            </button>
-          </div>
-
-          <div className="max-h-48 overflow-y-auto space-y-1.5 divide-y divide-slate-100">
-            {searchResults.length > 0 ? (
-              searchResults.map((res, i) => (
-                <div
-                  key={i}
-                  onClick={() => loadGraph(res.id)}
-                  className="pt-2 p-2 hover:bg-indigo-50/60 rounded-lg cursor-pointer transition-colors flex items-center justify-between"
-                >
-                  <div>
-                    <div className="text-xs font-semibold text-slate-900">{res.name}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">
-                      {res.type} {res.distance !== undefined ? `• Dist: ${res.distance.toFixed(3)}` : ''}
-                    </div>
-                  </div>
-                  <span className="text-[11px] text-indigo-600 font-semibold">View Graph →</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-xs text-slate-400 py-3 text-center">
-                Enter a search query to surface ranked research entities.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Knowledge Graph Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Activity className="text-indigo-600" size={20} /> 3. Interactive Knowledge Graph
-            </h2>
-            <p className="text-xs text-slate-500">
-              1-Hop and 2-Hop graph relationships connecting researchers, papers, datasets, methods, and topics.
-            </p>
-          </div>
-          <button
-            onClick={() => loadGraph('2')}
-            className="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors"
-          >
-            Reset Center Node
-          </button>
-        </div>
-
-        <GraphView nodes={graphData.nodes} edges={graphData.edges} />
-      </div>
-
-      {/* 4. Potential Research Overlap Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Layers className="text-amber-600" size={20} /> 4. Potential Research Overlap & Collaboration Detection
-          </h2>
-          <p className="text-xs text-slate-500">
-            Compare two studies or theses to detect shared datasets, methodologies, and cross-department collaboration bridges.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Study / Thesis A (Node ID):</label>
-            <input
-              type="text"
-              value={node1Id}
-              onChange={(e) => setNode1Id(e.target.value)}
-              placeholder="e.g. 2"
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-amber-600"
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-slate-600 block mb-1">Study / Thesis B (Node ID):</label>
-            <input
-              type="text"
-              value={node2Id}
-              onChange={(e) => setNode2Id(e.target.value)}
-              placeholder="e.g. 7"
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:border-amber-600"
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleAnalyzeOverlap}
-          disabled={isAnalyzingOverlap || !node1Id || !node2Id}
-          className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-        >
-          {isAnalyzingOverlap ? <RefreshCw className="animate-spin" size={14} /> : 'Calculate Potential Overlap'}
-        </button>
-
-        {overlapData && (
-          <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl space-y-3 mt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-amber-900">
-                Potential Overlap: {overlapData.overlap_score}%
-              </span>
-              <span className="text-[11px] px-2 py-0.5 bg-amber-200 text-amber-800 rounded font-semibold">
-                High Evidence Match
-              </span>
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-slate-700">Shared Evidence Provenance:</span>
-              <div className="flex flex-wrap gap-2 mt-1.5">
-                {overlapData.evidence.map((ev, idx) => (
-                  <span key={idx} className="px-2.5 py-1 bg-white border border-amber-300 text-slate-800 text-xs rounded-lg font-medium shadow-2xs">
-                    <span className="font-bold text-amber-700 mr-1">[{ev.type}]</span> {ev.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Footer */}
+        <footer className="text-center text-[11px] text-slate-400 py-3">
+          Graphis MVP Evaluation Build | Single-Tenant Architecture | Supabase & pgvector
+        </footer>
       </div>
     </div>
   );
