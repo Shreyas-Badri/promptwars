@@ -18,9 +18,16 @@ elif raw_url.startswith("postgresql://") and not raw_url.startswith("postgresql+
 # Remove sslmode query parameter if present for asyncpg compatibility
 clean_url = re.sub(r'[\?\&]sslmode=[^&]+', '', raw_url)
 
+import ssl
+
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
 connect_args = {}
-if "supabase" in raw_url or "sslmode=require" in settings.DATABASE_URL:
-    connect_args["ssl"] = "require"
+if "supabase" in raw_url or "sslmode=require" in settings.DATABASE_URL or "amazonaws.com" in raw_url or "pooler" in raw_url:
+    connect_args["ssl"] = ssl_context
+    connect_args["statement_cache_size"] = 0
 
 engine = create_async_engine(clean_url, connect_args=connect_args, echo=True)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
