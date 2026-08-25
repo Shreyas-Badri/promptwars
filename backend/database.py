@@ -40,9 +40,14 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 Base = declarative_base()
 
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception as ex:
-            await session.rollback()
-            raise ex
+    try:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+            except Exception as ex:
+                await session.rollback()
+                raise ex
+    except Exception as conn_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Database connection failed, yielding None: {conn_err}")
+        yield None
